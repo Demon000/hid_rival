@@ -16,7 +16,6 @@ struct rival_led_data {
 	uint32_t product;
 	bool registered;
 
-	uint32_t report_type;
 
 	char name[32];
 	enum led_brightness brightness;
@@ -27,10 +26,9 @@ struct rival_led_data {
 	struct led_classdev cdev;
 	struct work_struct work;
 
+	uint32_t report_type;
 	uint8_t command[16];
 	uint32_t command_length;
-	uint8_t command_suffix[16];
-	uint32_t command_suffix_length;
 };
 
 static struct rival_led_data rival_leds[] = {
