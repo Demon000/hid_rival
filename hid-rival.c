@@ -38,7 +38,6 @@ static struct rival_led_data rival_leds[] = {
 
 		.name = "rival:rgb:body",
 		.brightness = 0,
-		.max_brightness = 16777216,
 		.led_type = LED_RGB,
 
 		.report_type = HID_OUTPUT_REPORT,
