@@ -131,7 +131,7 @@ static void rival_unregister_led(struct hid_device *hdev, struct rival_led_data 
 
 	cancel_work_sync(&rival_led->work);
 	led_classdev_unregister(&rival_led->cdev);
-	hid_err(hdev, "%s: unregistered %d %d\n", __func__, hdev->vendor, hdev->product);
+	hid_err(hdev, "%s: unregistered %x:%x\n", __func__, hdev->vendor, hdev->product);
 
 	rival_led->registered = false;
 }
