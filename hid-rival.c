@@ -71,9 +71,9 @@ static int rival_led_set_report(struct rival_led_data *rival_led,
 static void rival_led_work(struct work_struct *work) {
 	struct rival_led_data *rival_led = container_of(work, struct rival_led_data, work);
 	uint8_t buf[64];
-	int buf_size = 0;
+	size_t buf_size = 0;
+	size_t i;
 	int ret;
-	int i;
 
 	// report_id + command + color + suffix
 	buf[buf_size++] = 0x0;
@@ -156,8 +156,8 @@ static void rival_unregister_led(struct hid_device *hdev, struct rival_led_data 
 }
 
 static int rival_probe(struct hid_device *hdev, const struct hid_device_id *id) {
+	size_t i;
 	int ret;
-	int i;
 
 	ret = hid_parse(hdev);
 	if (ret) {
@@ -182,7 +182,7 @@ static int rival_probe(struct hid_device *hdev, const struct hid_device_id *id) 
 }
 
 static void rival_remove(struct hid_device *hdev) {
-	int i;
+	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(rival_leds); i++) {
 		if (hdev->vendor == rival_leds[i].vendor &&
