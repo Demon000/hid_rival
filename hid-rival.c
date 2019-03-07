@@ -7,6 +7,8 @@
 
 #include "hid-rival.h"
 
+#define RGB_LED_BRIGHTNESS 16777216
+
 enum LED_TYPE {
 	LED_RGB = 0,
 };
@@ -16,10 +18,7 @@ struct rival_led_data {
 	uint32_t product;
 	bool registered;
 
-
 	char name[32];
-	enum led_brightness brightness;
-	enum led_brightness max_brightness;
 	uint32_t led_type;
 
 	struct hid_device *hdev;
@@ -103,11 +102,13 @@ static int rival_register_led(struct hid_device *hdev, struct rival_led_data *ri
 
 	rival_led->hdev = hdev;
 	rival_led->cdev.name = rival_led->name;
-	rival_led->cdev.max_brightness = rival_led->max_brightness;
-	rival_led->cdev.brightness = rival_led->brightness;
 	rival_led->cdev.brightness_set = rival_led_brightness_set;
 	rival_led->cdev.brightness_get = rival_led_brightness_get;
 	INIT_WORK(&rival_led->work, rival_led_work);
+
+	if (rival_led->type == LED_RGB) {
+		rival_led->cdev.max_brightness = LED_RGB_MAX_BRIGHTNESS;
+	}
 
 	ret = led_classdev_register(&hdev->dev, &rival_led->cdev);
 	if (ret < 0) {
