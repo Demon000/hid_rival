@@ -7,7 +7,7 @@
 
 #include "hid-rival.h"
 
-#define RGB_LED_BRIGHTNESS 16777216
+#define LED_RGB_MAX_BRIGHTNESS 16777216
 
 enum LED_TYPE {
 	LED_RGB = 0,
