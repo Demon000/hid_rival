@@ -107,7 +107,7 @@ static int rival_register_led(struct hid_device *hdev, struct rival_led_data *ri
 	rival_led->cdev.brightness_get = rival_led_brightness_get;
 	INIT_WORK(&rival_led->work, rival_led_work);
 
-	if (rival_led->type == LED_RGB) {
+	if (rival_led->led_type == LED_RGB) {
 		rival_led->cdev.max_brightness = LED_RGB_MAX_BRIGHTNESS;
 	}
 
