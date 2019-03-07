@@ -52,8 +52,9 @@ static int rival_set_command(struct rival_led_data *rival_led) {
 	int ret;
 
 	dmabuf = kmemdup(rival_led->command, rival_led->command_length, GFP_KERNEL);
-	if (!dmabuf)
+	if (!dmabuf) {
 		return -ENOMEM;
+	}
 
 	ret = hid_hw_raw_request(rival_led->hdev, dmabuf[0], dmabuf,
 			rival_led->command_length, rival_led->report_type, HID_REQ_SET_REPORT);
