@@ -19,6 +19,7 @@ struct rival_led_data {
 	bool registered;
 
 	char name[32];
+	uint32_t brightness;
 	uint32_t led_type;
 
 	struct hid_device *hdev;
@@ -28,6 +29,8 @@ struct rival_led_data {
 	uint32_t report_type;
 	uint8_t command[16];
 	uint32_t command_length;
+	uint8_t suffix[16];
+	uint32_t suffix_length;
 };
 
 static struct rival_led_data rival_leds[] = {
@@ -41,22 +44,25 @@ static struct rival_led_data rival_leds[] = {
 		.led_type = LED_RGB,
 
 		.report_type = HID_OUTPUT_REPORT,
-		.command = { 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
-		.command_length = 10,
+		.command = { 0x05, 0x00 },
+		.command_length = 2,
+		.suffix = { 0x00, 0x00, 0x00, 0x00 },
+		.suffix_length = 4,
 	},
 };
 
-static int rival_set_command(struct rival_led_data *rival_led) {
-	unsigned char *dmabuf;
+static int rival_led_set_report(struct rival_led_data *rival_led,
+		uint8_t *buf, size_t buf_size) {
+	uint8_t *dmabuf;
 	int ret;
 
-	dmabuf = kmemdup(rival_led->command, rival_led->command_length, GFP_KERNEL);
+	dmabuf = kmemdup(buf, buf_size, GFP_KERNEL);
 	if (!dmabuf) {
 		return -ENOMEM;
 	}
 
 	ret = hid_hw_raw_request(rival_led->hdev, dmabuf[0], dmabuf,
-			rival_led->command_length, rival_led->report_type, HID_REQ_SET_REPORT);
+			buf_size, rival_led->report_type, HID_REQ_SET_REPORT);
 	kfree(dmabuf);
 
 	return ret;
@@ -64,15 +70,29 @@ static int rival_set_command(struct rival_led_data *rival_led) {
 
 static void rival_led_work(struct work_struct *work) {
 	struct rival_led_data *rival_led = container_of(work, struct rival_led_data, work);
+	uint8_t buf[64];
+	int buf_size = 0;
 	int ret;
+	int i;
 
-	if (rival_led->led_type == LED_RGB) {
-		rival_led->command[3] = rival_led->brightness >> 16 & 0xff;
-		rival_led->command[4] = rival_led->brightness >> 8 & 0xff;
-		rival_led->command[5] = rival_led->brightness & 0xff;
+	// report_id + command + color + suffix
+	buf[buf_size++] = 0x0;
+
+	for (i = 0; i < rival_led->command_length; i++) {
+		buf[buf_size++] = rival_led->command[i];
 	}
 
-	ret = rival_set_command(rival_led);
+	if (rival_led->led_type == LED_RGB) {
+		buf[buf_size++] = rival_led->brightness >> 16 & 0xff;
+		buf[buf_size++] = rival_led->brightness >> 8 & 0xff;
+		buf[buf_size++] = rival_led->brightness & 0xff;
+	}
+
+	for (i = 0; i < rival_led->suffix_length; i++) {
+		buf[buf_size++] = rival_led->suffix[0];
+	}
+
+	ret = rival_led_set_report(rival_led, buf, buf_size);
 	if (ret < 0) {
 		hid_err(rival_led->hdev, "%s: failed to set led brightness: %d\n", __func__, ret);
 	}
