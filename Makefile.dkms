@@ -1,0 +1,24 @@
+modname := hid-rival
+DKMS := dkms
+modver := $(shell awk -F'"' '/define *HID_RIVAL_VERSION/{print $$2}' < hid-rival.c)
+
+# directory in which generated files are stored
+DKMS_DEST := /usr/src/$(modname)-$(modver)
+
+all: install
+
+src_install:
+	mkdir -p '$(DKMS_DEST)'
+	cp Makefile hid-rival.c '$(DKMS_DEST)'
+	sed 's/#MODULE_VERSION#/$(modver)/' dkms/dkms.conf > '$(DKMS_DEST)/dkms.conf'
+
+build: src_install
+	$(DKMS) build -m hid-rival -v $(modver)
+
+install: build
+	$(DKMS) install -m hid-rival -v $(modver)
+
+uninstall:
+	$(DKMS) remove -m hid-rival -v $(modver) --all
+
+.PHONY: all src_install build install uninstall

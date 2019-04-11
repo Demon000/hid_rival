@@ -5,7 +5,10 @@
 #include <linux/leds.h>
 #include <linux/module.h>
 
-#include "hid-rival.h"
+#define HID_RIVAL_VERSION "0.1"
+
+#define USB_VENDOR_ID_STEELSERIES               0x1038
+#define USB_DEVICE_ID_STEELSERIES_RIVAL_110     0x1729
 
 #define LED_RGB_MAX_BRIGHTNESS 16777216
 
@@ -211,3 +214,6 @@ static struct hid_driver rival_driver = {
 module_hid_driver(rival_driver);
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Control Rival Mouse RGB");
+MODULE_AUTHOR("Demon Singur <demonsingur@gmail.com>");
+MODULE_VERSION(HID_RIVAL_VERSION);
