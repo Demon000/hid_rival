@@ -12,49 +12,74 @@
 
 #define LED_RGB_MAX_BRIGHTNESS 16777216
 
-enum led_type {
-	LED_RGB = 0,
+enum command_types {
+	COMMAND_NONE,
+	COMMAND_SET_BODY_RGB_LED,
 };
 
-struct rival_led_data {
-	uint32_t vendor;
-	uint32_t product;
-	bool registered;
+enum value_types {
+	VALUE_NONE,
+	VALUE_RGB,
+};
 
-	char name[32];
-	uint32_t brightness;
-	enum led_type type;
+struct rival_command_data {
+	uint8_t value_type;
+	uint8_t report_type;
 
-	struct hid_device *hdev;
-	struct led_classdev cdev;
-	struct work_struct work;
-
-	uint32_t report_type;
-	uint8_t command[16];
-	uint32_t command_length;
+	uint8_t prefix[16];
+	uint32_t prefix_length;
 	uint8_t suffix[16];
 	uint32_t suffix_length;
 };
 
-static struct rival_led_data rival_leds[] = {
+struct rival_led_data {
+	char name[32];
+	uint32_t brightness;
+
+	enum command_types command_type;
+
+	struct hid_device *hdev;
+	struct led_classdev cdev;
+	struct work_struct work;
+};
+
+struct rival_mouse_data {
+	uint32_t vendor;
+	uint32_t product;
+	bool registered;
+
+	struct rival_led_data body_led;
+};
+
+static struct rival_command_data rival_commands[] = {
+	// COMMAND_NONE
+	{},
+
+	// COMMAND_SET_BODY_RGB_LED
 	{
-		.vendor = USB_VENDOR_ID_STEELSERIES,
-		.product = USB_DEVICE_ID_STEELSERIES_RIVAL_110,
-		.registered = false,
-
-		.name = "rival:rgb:body",
-		.brightness = 0,
-		.type = LED_RGB,
-
+		.value_type = VALUE_RGB,
 		.report_type = HID_OUTPUT_REPORT,
-		.command = { 0x05, 0x00 },
-		.command_length = 2,
+		.prefix = { 0x05, 0x00 },
+		.prefix_length = 2,
 		.suffix = { 0x00, 0x00, 0x00, 0x00 },
 		.suffix_length = 4,
 	},
 };
 
-static int rival_set_report(struct rival_led_data *rival_led,
+static struct rival_mouse_data rival_mice[] = {
+	{
+		.vendor = USB_VENDOR_ID_STEELSERIES,
+		.product = USB_DEVICE_ID_STEELSERIES_RIVAL_110,
+		.registered = false,
+
+		.body_led = {
+			.name = "rival:rgb:body",
+			.command_type = COMMAND_SET_BODY_RGB_LED,
+		},
+	},
+};
+
+static int rival_set_report(struct hid_device *hdev, uint8_t report_type,
 		uint8_t *buf, size_t buf_size) {
 	uint8_t *dmabuf;
 	int ret;
@@ -64,41 +89,52 @@ static int rival_set_report(struct rival_led_data *rival_led,
 		return -ENOMEM;
 	}
 
-	ret = hid_hw_raw_request(rival_led->hdev, dmabuf[0], dmabuf,
-			buf_size, rival_led->report_type, HID_REQ_SET_REPORT);
+	ret = hid_hw_raw_request(hdev, dmabuf[0], dmabuf, buf_size,
+			report_type, HID_REQ_SET_REPORT);
 	kfree(dmabuf);
+
+	return ret;
+}
+
+static int rival_run_command(struct hid_device *hdev, enum command_types command_type,
+		void *data) {
+	struct rival_command_data command = rival_commands[command_type];
+	uint8_t buf[64];
+	size_t buf_size = 0;
+	size_t i;
+	int brightness;
+	int ret;
+
+	// report_id + command + color + suffix
+	buf[buf_size++] = 0x0;
+
+	for (i = 0; i < command.prefix_length; i++) {
+		buf[buf_size++] = command.prefix[i];
+	}
+
+	if (command.value_type == VALUE_RGB) {
+		brightness =  *(int*) data;
+		buf[buf_size++] = brightness >> 16 & 0xff;
+		buf[buf_size++] = brightness >> 8 & 0xff;
+		buf[buf_size++] = brightness & 0xff;
+	}
+
+	for (i = 0; i < command.suffix_length; i++) {
+		buf[buf_size++] = command.suffix[i];
+	}
+
+	ret = rival_set_report(hdev, command.report_type, buf, buf_size);
+	if (ret < 0) {
+		hid_err(hdev, "%s: failed to set led brightness: %d\n", __func__, ret);
+	}
 
 	return ret;
 }
 
 static void rival_led_work(struct work_struct *work) {
 	struct rival_led_data *rival_led = container_of(work, struct rival_led_data, work);
-	uint8_t buf[64];
-	size_t buf_size = 0;
-	size_t i;
-	int ret;
 
-	// report_id + command + color + suffix
-	buf[buf_size++] = 0x0;
-
-	for (i = 0; i < rival_led->command_length; i++) {
-		buf[buf_size++] = rival_led->command[i];
-	}
-
-	if (rival_led->type == LED_RGB) {
-		buf[buf_size++] = rival_led->brightness >> 16 & 0xff;
-		buf[buf_size++] = rival_led->brightness >> 8 & 0xff;
-		buf[buf_size++] = rival_led->brightness & 0xff;
-	}
-
-	for (i = 0; i < rival_led->suffix_length; i++) {
-		buf[buf_size++] = rival_led->suffix[i];
-	}
-
-	ret = rival_set_report(rival_led, buf, buf_size);
-	if (ret < 0) {
-		hid_err(rival_led->hdev, "%s: failed to set led brightness: %d\n", __func__, ret);
-	}
+	rival_run_command(rival_led->hdev, rival_led->command_type, &rival_led->brightness);
 }
 
 static void rival_led_brightness_set(struct led_classdev *led_cdev,
@@ -116,11 +152,14 @@ static enum led_brightness rival_led_brightness_get(struct led_classdev *led_cde
 }
 
 static int rival_register_led(struct hid_device *hdev, struct rival_led_data *rival_led) {
-	int ret = 0;
+	int ret;
 
-	if (rival_led->registered) {
-		hid_err(hdev, "%s: already registered led %s\n", __func__, rival_led->name);
-		return ret;
+	switch (rival_led->command_type) {
+	case COMMAND_SET_BODY_RGB_LED:
+		rival_led->cdev.max_brightness = LED_RGB_MAX_BRIGHTNESS;
+		break;
+	case COMMAND_NONE:
+		return 0;
 	}
 
 	rival_led->hdev = hdev;
@@ -129,33 +168,52 @@ static int rival_register_led(struct hid_device *hdev, struct rival_led_data *ri
 	rival_led->cdev.brightness_get = rival_led_brightness_get;
 	INIT_WORK(&rival_led->work, rival_led_work);
 
-	if (rival_led->type == LED_RGB) {
-		rival_led->cdev.max_brightness = LED_RGB_MAX_BRIGHTNESS;
-	}
-
 	ret = led_classdev_register(&hdev->dev, &rival_led->cdev);
 	if (ret < 0) {
-		hid_err(hdev, "%s: failed to register led %s\n", __func__, rival_led->name);
 		return ret;
 	}
-
-	hid_err(hdev, "%s: registered led %s\n", __func__, rival_led->name);
-	rival_led->registered = true;
 
 	return ret;
 }
 
 static void rival_unregister_led(struct hid_device *hdev, struct rival_led_data *rival_led) {
-	if (!rival_led->registered) {
-		hid_err(hdev, "%s: already unregistered led %s\n", __func__, rival_led->name);
+	if (rival_led->command_type == COMMAND_NONE) {
 		return;
 	}
 
 	cancel_work_sync(&rival_led->work);
 	led_classdev_unregister(&rival_led->cdev);
-	hid_err(hdev, "%s: unregistered led %s\n", __func__, rival_led->name);
+}
 
-	rival_led->registered = false;
+static void rival_register_mouse(struct hid_device *hdev, struct rival_mouse_data *rival_mouse) {
+	int rc;
+
+	if (rival_mouse->registered) {
+		hid_err(hdev, "%s: already registered mouse\n", __func__);
+		return;
+	}
+
+	rc = rival_register_led(hdev, &rival_mouse->body_led);
+	if (rc) {
+		hid_err(hdev, "%s: failed to register body led\n", __func__);
+	}
+
+	rival_mouse->registered = true;
+
+	hid_info(hdev, "%s: registered mouse\n", __func__);
+}
+
+static void rival_unregister_mouse(struct hid_device *hdev, struct rival_mouse_data *rival_mouse) {
+	if (!rival_mouse->registered) {
+		hid_err(hdev, "%s: already unregistered mouse\n", __func__);
+		return;
+	}
+
+	rival_unregister_led(hdev, &rival_mouse->body_led);
+
+	rival_mouse->registered = false;
+
+	hid_info(hdev, "%s: unregistered mouse\n", __func__);
 }
 
 static int rival_probe(struct hid_device *hdev, const struct hid_device_id *id) {
@@ -174,10 +232,11 @@ static int rival_probe(struct hid_device *hdev, const struct hid_device_id *id) 
 		return ret;
 	}
 
-	for (i = 0; i < ARRAY_SIZE(rival_leds); i++) {
-		if (hdev->vendor == rival_leds[i].vendor &&
-				hdev->product == rival_leds[i].product) {
-			rival_register_led(hdev, &rival_leds[i]);
+	for (i = 0; i < ARRAY_SIZE(rival_mice); i++) {
+		if (hdev->vendor == rival_mice[i].vendor &&
+				hdev->product == rival_mice[i].product) {
+			rival_register_mouse(hdev, &rival_mice[i]);
+			break;
 		}
 	}
 
@@ -187,10 +246,11 @@ static int rival_probe(struct hid_device *hdev, const struct hid_device_id *id) 
 static void rival_remove(struct hid_device *hdev) {
 	size_t i;
 
-	for (i = 0; i < ARRAY_SIZE(rival_leds); i++) {
-		if (hdev->vendor == rival_leds[i].vendor &&
-				hdev->product == rival_leds[i].product) {
-			rival_unregister_led(hdev, &rival_leds[i]);
+	for (i = 0; i < ARRAY_SIZE(rival_mice); i++) {
+		if (hdev->vendor == rival_mice[i].vendor &&
+				hdev->product == rival_mice[i].product) {
+			rival_unregister_mouse(hdev, &rival_mice[i]);
+			break;
 		}
 	}
 
