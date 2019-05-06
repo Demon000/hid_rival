@@ -102,7 +102,7 @@ static void rival_led_work(struct work_struct *work) {
 }
 
 static void rival_led_brightness_set(struct led_classdev *led_cdev,
-				   enum led_brightness brightness) {
+		enum led_brightness brightness) {
 	struct rival_led_data *rival_led = container_of(led_cdev, struct rival_led_data, cdev);
 
 	rival_led->brightness = brightness;
