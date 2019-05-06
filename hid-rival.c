@@ -5,7 +5,7 @@
 #include <linux/leds.h>
 #include <linux/module.h>
 
-#define HID_RIVAL_VERSION "0.1"
+#define HID_RIVAL_VERSION "0.2"
 
 #define USB_VENDOR_ID_STEELSERIES			0x1038
 #define USB_DEVICE_ID_STEELSERIES_RIVAL_110		0x1729
