@@ -131,11 +131,15 @@ static int rival_run_command(struct hid_device *hdev, enum command_types command
 		buf[buf_size++] = command.prefix[i];
 	}
 
-	if (command.value_type == VALUE_RGB) {
+	switch (command.value_type) {
+	case VALUE_RGB:
 		brightness =  *(int*) data;
 		buf[buf_size++] = brightness >> 16 & 0xff;
 		buf[buf_size++] = brightness >> 8 & 0xff;
 		buf[buf_size++] = brightness & 0xff;
+		break;
+	default:
+		break;
 	}
 
 	for (i = 0; i < command.suffix_length; i++) {
@@ -178,7 +182,7 @@ static int rival_register_led(struct hid_device *hdev, struct rival_led_data *ri
 	case COMMAND_SET_BODY_RGB_LED:
 		rival_led->cdev.max_brightness = LED_RGB_MAX_BRIGHTNESS;
 		break;
-	case COMMAND_NONE:
+	default:
 		return 0;
 	}
 
