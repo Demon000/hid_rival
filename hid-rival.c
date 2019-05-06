@@ -92,7 +92,7 @@ static void rival_led_work(struct work_struct *work) {
 	}
 
 	for (i = 0; i < rival_led->suffix_length; i++) {
-		buf[buf_size++] = rival_led->suffix[0];
+		buf[buf_size++] = rival_led->suffix[i];
 	}
 
 	ret = rival_set_report(rival_led, buf, buf_size);
