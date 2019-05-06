@@ -12,7 +12,7 @@
 
 #define LED_RGB_MAX_BRIGHTNESS 16777216
 
-enum LED_TYPE {
+enum led_type {
 	LED_RGB = 0,
 };
 
@@ -23,7 +23,7 @@ struct rival_led_data {
 
 	char name[32];
 	uint32_t brightness;
-	uint32_t led_type;
+	enum led_type type;
 
 	struct hid_device *hdev;
 	struct led_classdev cdev;
@@ -44,7 +44,7 @@ static struct rival_led_data rival_leds[] = {
 
 		.name = "rival:rgb:body",
 		.brightness = 0,
-		.led_type = LED_RGB,
+		.type = LED_RGB,
 
 		.report_type = HID_OUTPUT_REPORT,
 		.command = { 0x05, 0x00 },
@@ -85,7 +85,7 @@ static void rival_led_work(struct work_struct *work) {
 		buf[buf_size++] = rival_led->command[i];
 	}
 
-	if (rival_led->led_type == LED_RGB) {
+	if (rival_led->type == LED_RGB) {
 		buf[buf_size++] = rival_led->brightness >> 16 & 0xff;
 		buf[buf_size++] = rival_led->brightness >> 8 & 0xff;
 		buf[buf_size++] = rival_led->brightness & 0xff;
@@ -129,7 +129,7 @@ static int rival_register_led(struct hid_device *hdev, struct rival_led_data *ri
 	rival_led->cdev.brightness_get = rival_led_brightness_get;
 	INIT_WORK(&rival_led->work, rival_led_work);
 
-	if (rival_led->led_type == LED_RGB) {
+	if (rival_led->type == LED_RGB) {
 		rival_led->cdev.max_brightness = LED_RGB_MAX_BRIGHTNESS;
 	}
 
