@@ -14,6 +14,7 @@
 
 enum command_types {
 	COMMAND_NONE,
+	COMMAND_SAVE,
 	COMMAND_SET_BODY_RGB_LED,
 };
 
@@ -37,6 +38,7 @@ struct rival_led_data {
 	uint32_t brightness;
 
 	enum command_types command_type;
+	enum command_types save_command_type;
 
 	struct hid_device *hdev;
 	struct led_classdev cdev;
@@ -54,6 +56,16 @@ struct rival_mouse_data {
 static struct rival_command_data rival_commands[] = {
 	// COMMAND_NONE
 	{},
+
+	// COMMAND_SAVE
+	{
+		.value_type = VALUE_NONE,
+		.report_type = HID_OUTPUT_REPORT,
+		.prefix = { 0x09, 0x00 },
+		.prefix_length = 2,
+		.suffix = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+		.suffix_length = 7,
+	},
 
 	// COMMAND_SET_BODY_RGB_LED
 	{
@@ -75,6 +87,7 @@ static struct rival_mouse_data rival_mice[] = {
 		.body_led = {
 			.name = "rival:rgb:body",
 			.command_type = COMMAND_SET_BODY_RGB_LED,
+			.save_command_type = COMMAND_SAVE,
 		},
 	},
 };
@@ -98,12 +111,18 @@ static int rival_set_report(struct hid_device *hdev, uint8_t report_type,
 
 static int rival_run_command(struct hid_device *hdev, enum command_types command_type,
 		void *data) {
-	struct rival_command_data command = rival_commands[command_type];
+	struct rival_command_data command;
 	uint8_t buf[64];
 	size_t buf_size = 0;
 	size_t i;
 	int brightness;
 	int ret;
+
+	if (command_type == COMMAND_NONE) {
+		return -EINVAL;
+	}
+
+	command = rival_commands[command_type];
 
 	// report_id + command + color + suffix
 	buf[buf_size++] = 0x0;
@@ -135,6 +154,7 @@ static void rival_led_work(struct work_struct *work) {
 	struct rival_led_data *rival_led = container_of(work, struct rival_led_data, work);
 
 	rival_run_command(rival_led->hdev, rival_led->command_type, &rival_led->brightness);
+	rival_run_command(rival_led->hdev, rival_led->save_command_type, NULL);
 }
 
 static void rival_led_brightness_set(struct led_classdev *led_cdev,
