@@ -124,7 +124,7 @@ static int rival_run_command(struct hid_device *hdev, enum command_types command
 
 	command = rival_commands[command_type];
 
-	// report_id + command + color + suffix
+	// report_id + prefix + value + suffix
 	buf[buf_size++] = 0x0;
 
 	for (i = 0; i < command.prefix_length; i++) {
