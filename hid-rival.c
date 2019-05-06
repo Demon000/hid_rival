@@ -54,7 +54,7 @@ static struct rival_led_data rival_leds[] = {
 	},
 };
 
-static int rival_led_set_report(struct rival_led_data *rival_led,
+static int rival_set_report(struct rival_led_data *rival_led,
 		uint8_t *buf, size_t buf_size) {
 	uint8_t *dmabuf;
 	int ret;
@@ -95,7 +95,7 @@ static void rival_led_work(struct work_struct *work) {
 		buf[buf_size++] = rival_led->suffix[0];
 	}
 
-	ret = rival_led_set_report(rival_led, buf, buf_size);
+	ret = rival_set_report(rival_led, buf, buf_size);
 	if (ret < 0) {
 		hid_err(rival_led->hdev, "%s: failed to set led brightness: %d\n", __func__, ret);
 	}
