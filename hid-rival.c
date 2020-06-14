@@ -299,5 +299,5 @@ module_hid_driver(rival_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Control Rival Mouse RGB");
-MODULE_AUTHOR("Demon Singur <demonsingur@gmail.com>");
+MODULE_AUTHOR("Cosmin Tanislav <demonsingur@gmail.com>");
 MODULE_VERSION(HID_RIVAL_VERSION);
